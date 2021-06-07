@@ -1,9 +1,7 @@
 const log = console.log;
 
-function injector(csvObjectArray, orderElementObjectArray) {
+function injector(csvObjectArray, orderElementObject) {
   function injectTrackingDetail(element, orderIndex, tracking) {
-    if (!(element && element instanceof HTMLElement)) return;
-
     const TRACKING_INPUT_ID = `order(${orderIndex.trim()}).box(1).trackingnumber`;
 
     const inputTracking = document.getElementById(TRACKING_INPUT_ID);
@@ -14,8 +12,6 @@ function injector(csvObjectArray, orderElementObjectArray) {
   }
 
   function injectShippingMethodDetail(element, orderIndex, deliveryCode) {
-    if (!(element && element instanceof HTMLElement)) return;
-
     //* If carrierType =’GROUND_HOME DELIVERY’ Select ‘FedEx Ground’ from dropdown
     //* If carrrierType = ‘FEDEX_GROUND’ Select‘  SELECT ‘FedEx Home Delivery’ from dropdown
 
@@ -51,9 +47,7 @@ function injector(csvObjectArray, orderElementObjectArray) {
     }
   }
 
-  function orderDetailInjector(element, orderIndex) {
-    if (!(element && element instanceof HTMLElement)) return;
-
+  function orderDetailInjector(element, orderIndex, sku, qty) {
     function injectShippingWarehouseDetail(idTag) {
       const SELECT_WAREHOUSE_ID = idTag + ".shippingLineWarehouse";
       const OPTION_WAREHOUSE_ID = idTag + ".shippingLineWarehouse.Sterling-VA";
@@ -82,8 +76,42 @@ function injector(csvObjectArray, orderElementObjectArray) {
       }
     }
 
-    function inject(){
-        
+    function injectShipQuantityDetail(idTag, sku, qty) {
+      /**
+       * @param {string} idTag - order(866616824).box(1).item(958392481)
+       * @param {string} sku - SFBR1126
+       * @param {string} qty - 1 or 2 or ...
+       */
+
+      //*cell.line.order(866616824).box(1).item(958392481).vendorSku
+      //*order(866616824).box(1).item(958392481).shipped
+
+      const SKU_ID = "cell.line." + idTag + ".vendorSku";
+      const QTY_ID = idTag + ".shipped";
+
+      const elementSku = document.getElementById(SKU_ID);
+      const elementQty = document.getElementById(QTY_ID);
+
+      if (
+        !(
+          elementSku &&
+          elementQty &&
+          elementSku instanceof HTMLElement &&
+          elementQty instanceof HTMLElement
+        )
+      ) {
+        console.error("quantity input element or sky element not found!");
+        return;
+      }
+
+      const elementSkuValue = (elementSku.innerText || "").trim();
+
+      if (!(elementSkuValue && elementSkuValue.length)) return;
+
+      sku = sku.trim();
+      if (elementSkuValue === sku) {
+        elementQty.value = qty;
+      }
     }
 
     const trArray = Array.from(
@@ -91,7 +119,10 @@ function injector(csvObjectArray, orderElementObjectArray) {
     );
     if (!(trArray && trArray)) return;
 
-    trArray.forEach((tr) => {
+    const skuArray = Array.from(sku.match(/.{1,8}/gim) || []);
+    const qtyArray = Array.from(qty.match(/\d{1}/gim) || []);
+
+    trArray.forEach((tr, trIndex) => {
       const id = tr.id;
       if (!id) return;
 
@@ -104,18 +135,36 @@ function injector(csvObjectArray, orderElementObjectArray) {
         return;
       }
       injectShippingWarehouseDetail(idTag);
+
+      if (trIndex < skuArray.length && trIndex < qtyArray.length) {
+        injectShipQuantityDetail(idTag, skuArray[trIndex], qtyArray[trIndex]);
+      }
     });
   }
 
-  if (csvObjectArray && orderElementObjectArray) {
-    csvObjectArray.forEach((csvObject, index) => {
-      if (index > orderElementObjectArray.length - 1) {
-        return;
-      }
+  if (csvObjectArray && orderElementObject) {
+    csvObjectArray.forEach((csvObject) => {
+      const {
+        orderID: csvOrderId,
+        tracking,
+        delivery_code,
+        sku,
+        qty,
+      } = csvObject;
 
-      const elementObject = orderElementObjectArray[index];
+      const elementObject = orderElementObject[csvOrderId];
+      if (
+        !(
+          elementObject &&
+          typeof elementObject === "object" &&
+          elementObject !== null
+        )
+      )
+        return;
+
       const { element, orderId, orderIndex } = elementObject;
-      const { orderID: csvOrderId, tracking, delivery_code } = csvObject;
+
+      if (!(element && element instanceof HTMLElement)) return;
 
       if (
         !(
@@ -124,7 +173,9 @@ function injector(csvObjectArray, orderElementObjectArray) {
           csvOrderId &&
           orderId &&
           element &&
-          delivery_code
+          delivery_code &&
+          sku &&
+          qty
         )
       )
         return;
@@ -132,7 +183,7 @@ function injector(csvObjectArray, orderElementObjectArray) {
       if (orderId.trim() === csvOrderId.trim()) {
         injectTrackingDetail(element, orderIndex, tracking);
         injectShippingMethodDetail(element, orderIndex, delivery_code);
-        orderDetailInjector(element, orderIndex);
+        orderDetailInjector(element, orderIndex, sku, qty);
       }
     });
   }
@@ -149,7 +200,7 @@ function getOrderQueue() {
   const orderElementArray = Array.from(
     orderForm.querySelectorAll(".fw_widget_windowtag")
   );
-  const orderElementObjectArray = [];
+  const orderElementObject = {};
 
   orderElementArray.forEach((elm) => {
     if (!(elm && elm instanceof HTMLElement)) return;
@@ -182,15 +233,17 @@ function getOrderQueue() {
       console.error(e);
     }
 
-    orderElementObjectArray.push({
-      element: elm,
-      orderId,
-      orderIndex,
-    });
+    if (orderId.length) {
+      orderElementObject[orderId.trim()] = {
+        element: elm,
+        orderId,
+        orderIndex,
+      };
+    }
   });
 
-  log("orderElementObjectArray", orderElementObjectArray);
-  return orderElementObjectArray;
+  log("orderElementObjectArray", orderElementObject);
+  return orderElementObject;
 }
 
 async function listener() {
@@ -217,6 +270,6 @@ async function listener() {
 
   log("csvObjectArray in content scirpt", csvObjectArray);
 
-  const orderElementObjectArray = getOrderQueue();
-  injector(csvObjectArray, orderElementObjectArray);
+  const orderElementObject = getOrderQueue();
+  injector(csvObjectArray, orderElementObject);
 })();
