@@ -1,6 +1,7 @@
 const log = console.log;
 
 let isPapaFailed = false;
+const csvTabObject = {}
 
 try {
   importScripts("./assets/libs/papaparse.min.js");
@@ -24,7 +25,7 @@ function convertAuto(csvString) {
     columns: null, //or array of strings
   };
 
-  const results = Papa.parse(csvString, {header: true});
+  const results = Papa.parse(csvString, { header: true });
 
   return results;
 }
@@ -52,17 +53,19 @@ async function convertor() {
 }
 
 //*listen for the incoming messages from popup.js
-async function listener() {
+async function listener(listenerCallback) {
   return new Promise((resolve, reject) => {
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ farewell: "goodbye" });
 
-      const url = request.url;
+      const csvUrl = request.csvUrl;
+      const targetUrl = request.targetUrl;
 
-      if (!(url && url.length)) {
+      if (!(csvUrl && targetUrl && csvUrl.length && targetUrl.length)) {
         reject(false);
       } else {
-        resolve(url);
+        listenerCallback(csvUrl, targetUrl);
+        resolve({ csvUrl, targetUrl });
       }
 
       return true;
@@ -70,28 +73,68 @@ async function listener() {
   });
 }
 
-async function sender(csvObjectArray) {
-  chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-    chrome.tabs.sendMessage(tabs[0].id, {csvObjectArray}, function(response) {
-      console.log(response);
-    });
+async function sender(csvObjectArray, tabId) {
+  chrome.tabs.sendMessage(tabId, { csvObjectArray }, function (response) {
+    console.log(response);
   });
 }
 
-(async () => {
-  // convertor()
+async function navigator(targetUrl) {
+  /**
+   * @param {string} url - the webpage url that need to be fill.
+   */
+  const promise = await chrome.tabs.create({ active: true, url: targetUrl });
 
-  const url = await listener();
-  if(!url) {
-    console.error('An Error Occured!')
+  log("navigator done", promise.id);
+  return promise.id;
+}
+
+async function executeContentScript(tabId) {
+  log("execute loaded");
+  return new Promise((resolve, reject) => {
+    chrome.scripting.executeScript(
+      {
+        target: { tabId },
+        files: ["./assets/js/contentScripts/injector.js"],
+      },
+      () => {
+        resolve(true);
+      }
+    );
+  });
+}
+
+async function listenerCallback(csvUrl, targetUrl) {
+ 
+  if (!csvUrl) {
+    console.error("An Error Occured!");
   }
-  const csvString = await fetchCsvData(url)
+  const csvString = await fetchCsvData(csvUrl);
 
   let csvObjectArray;
-  if(!isPapaFailed) {
-    csvObjectArray = convertAuto(csvString)
-  } 
+  if (!isPapaFailed) {
+    csvObjectArray = convertAuto(csvString);
+  }
 
-  log('csvObjectArray', csvObjectArray)
-  sender(csvObjectArray)
+  const tabId = await navigator(targetUrl);
+  
+  csvTabObject[tabId] = csvObjectArray;
+
+  log('csvTabObject', csvTabObject)
+}
+
+(async () => {
+    await listener(listenerCallback);
+
+    chrome.tabs.onUpdated.addListener(async (updatedTabId, changeInfo) => {
+      log('updatedTabId', updatedTabId)
+      if (changeInfo.status === "complete") {
+        if(csvTabObject[updatedTabId]) {
+          await executeContentScript(updatedTabId);
+          sender(csvTabObject[updatedTabId], updatedTabId)
+        }
+      }
+      return true;
+    });
+
 })();

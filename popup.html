@@ -4,15 +4,31 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./assets/css/bootstrap.min.css">
     <title>Dropship Tool</title>
+    <style>
+        body {
+            width: 400px;
+            height:250px;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <div class="container-wrapper">
-            <input type="text" name="url" id="inputCsvUrl" value="http://crm.saffronfabs.com/bbb2fedex/Ouploads/2021-06-05-10-19-48-Order-send-Result.csv" placeholder="http://crm.saffronfabs.com/...">
-            <input type="text" name="url" id="inputTargetUrl" value="">
-            <button id="loadCsv">Load</button>
-            <button id="resetInput">reset</button>
+    <div class="container-fluid">
+        <div class="container-wrapper mt-3">
+            <div class="mb-3">
+                <label for="inputCsvUrl" class="form-label">CSV URL</label>
+                <input type="text" class="form-control" name="url" id="inputCsvUrl" value="http://crm.saffronfabs.com/bbb2fedex/Ouploads/2021-06-05-10-19-48-Order-send-Result.csv" placeholder="http://crm.saffronfabs.com/...">
+              </div>
+              <div class="mb-3">
+                <label for="inputTargetUrl" class="form-label">Webpage URL</label>
+                <input type="text" class="form-control" name="url" id="inputTargetUrl" value="">
+              </div>
+              <div class="col-12">
+                <button id="loadCsv" type="submit" class="btn btn-primary">Submit</button>
+                <button id="resetInput" class="btn btn-secondary">Reset</button>
+              </div>
+           
         </div>
     </div>
     <script src="./popup.js"></script>

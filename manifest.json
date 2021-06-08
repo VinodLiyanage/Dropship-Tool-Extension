@@ -7,21 +7,34 @@
         "service_worker": "background.js"
     },
     "action": {
-        "default_popup": "popup.html"
+        "default_popup": "popup.html",
+        "default_title": "Dropshipping Tool",
+        "default_icon": {   
+          "16":"/assets/images/logo.png",
+          "24":"/assets/images/logo.png",
+          "32":"/assets/images/logo.png",
+          "128":"/assets/images/logo.png"                    
+      }
     },
     "content_scripts": [
-        {
-          "matches": ["*://*/*"],
-          "run_at": "document_idle",
-          "js": [
-            "/assets/js/contentScripts/injector.js"
-          ]
-        }
+     
+  
       ],
     "permissions":[
+        "activeTab",
+        "scripting",
+        "tabs",
         "storage"
     ],
     "host_permissions": [
+        "http://localhost:8000/new2.html",
+        "<all_urls>",
         "http://crm.saffronfabs.com/*"
-    ]
+    ],
+    "icons": {                    
+      "16":"/assets/images/logo.png",
+      "24":"/assets/images/logo.png",
+      "32":"/assets/images/logo.png",
+      "128":"/assets/images/logo.png"
+    }
 }

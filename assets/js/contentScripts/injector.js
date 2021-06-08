@@ -264,8 +264,10 @@ async function listener() {
   });
 }
 
+
 (async () => {
   log("content script started!");
+
   const csvObjectArray = await listener();
 
   log("csvObjectArray in content scirpt", csvObjectArray);
@@ -273,3 +275,6 @@ async function listener() {
   const orderElementObject = getOrderQueue();
   injector(csvObjectArray, orderElementObject);
 })();
+/**
+ *  
+ */
