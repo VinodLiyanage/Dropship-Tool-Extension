@@ -2,7 +2,7 @@
     "name": "Dropshipping Tool",
     "version": "1.0.0",
     "manifest_version": 3,
-    "description": "extension",
+    "description": "Auto fill order detail fields",
     "background": {
         "service_worker": "background.js"
     },
@@ -16,10 +16,6 @@
           "128":"/assets/images/logo.png"                    
       }
     },
-    "content_scripts": [
-     
-  
-      ],
     "permissions":[
         "activeTab",
         "scripting",
@@ -27,8 +23,8 @@
         "storage"
     ],
     "host_permissions": [
-        "http://localhost:8000/new2.html",
         "<all_urls>",
+        "https://dsm.commercehub.com/*",
         "http://crm.saffronfabs.com/*"
     ],
     "icons": {                    

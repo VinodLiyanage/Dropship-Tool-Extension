@@ -1,140 +1,61 @@
-const log = console.log;
-
-let isPapaFailed = false;
-const csvTabObject = {}
-
 try {
   importScripts("./assets/libs/papaparse.min.js");
-} catch (e) {
-  console.error(e);
-  isPapaFailed = true;
+} catch (err) {
+  throw new Error("fatal - failed to import papaparse!", err);
 }
 
-//* converts using the papaparse library.
-function convertAuto(csvString) {
-  csvString = csvString.replace(/[\r]/gim, "");
+chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+  sendResponse(true);
 
-  const config = {
-    quotes: false, //or array of booleans
-    quoteChar: '"',
-    escapeChar: '"',
-    delimiter: "",
-    header: true,
-    newline: "\r\n",
-    skipEmptyLines: false, //other option is 'greedy', meaning skip delimiters, quotes, and whitespace.
-    columns: null, //or array of strings
-  };
+  if (!sender.tab && request.csvUrl && request.targetUrl) {
+    const csvUrl = request.csvUrl;
+    const targetUrl = request.targetUrl;
 
-  const results = Papa.parse(csvString, { header: true });
+    if (csvUrl.length && targetUrl.length) {
+      executeScript(
+        await navigator(targetUrl),
+        convertAuto(await fetchCsvData(csvUrl))
+      );
+    }
+  }
 
-  return results;
-}
+  return true;
+});
 
-//*fetch csv data from server.
 async function fetchCsvData(url) {
-  try {
-    return fetch(url).then((res) => res.text());
-  } catch (e) {
-    return null;
-  }
-}
-
-//*converts csv data to array with objects.
-//! depreceted.
-async function convertor() {
-  const csv = await fetchCsvData();
-  if (csv === null) {
-    console.error("An Error Occured!");
-    return;
-  }
-  const csvString = csv.replace(/[\r]/gim, "");
-  log(csvString);
-  papa(csvString);
-}
-
-//*listen for the incoming messages from popup.js
-async function listener(listenerCallback) {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-      sendResponse({ farewell: "goodbye" });
-
-      const csvUrl = request.csvUrl;
-      const targetUrl = request.targetUrl;
-
-      if (!(csvUrl && targetUrl && csvUrl.length && targetUrl.length)) {
-        reject(false);
-      } else {
-        listenerCallback(csvUrl, targetUrl);
-        resolve({ csvUrl, targetUrl });
-      }
-
-      return true;
+  return fetch(url)
+    .then((res) => res.text())
+    .catch((err) => {
+      throw new Error("fatal - failed to fetch CSV data!", err);
     });
-  });
 }
 
-async function sender(csvObjectArray, tabId) {
-  chrome.tabs.sendMessage(tabId, { csvObjectArray }, function (response) {
-    console.log(response);
-  });
+function convertAuto(csvString) {
+  csvString = csvString.replace(/[\r]/gim, ""); // remove the Carriage Return from csvString.
+  return Papa.parse(csvString, { header: true });
 }
 
 async function navigator(targetUrl) {
-  /**
-   * @param {string} url - the webpage url that need to be fill.
-   */
-  const promise = await chrome.tabs.create({ active: true, url: targetUrl });
+  if (!(targetUrl && targetUrl.length)) return;
 
-  log("navigator done", promise.id);
+  const promise = await chrome.tabs.create({ active: true, url: targetUrl });
   return promise.id;
 }
 
-async function executeContentScript(tabId) {
-  log("execute loaded");
-  return new Promise((resolve, reject) => {
-    chrome.scripting.executeScript(
-      {
-        target: { tabId },
-        files: ["./assets/js/contentScripts/injector.js"],
-      },
-      () => {
-        resolve(true);
-      }
-    );
-  });
+function executeScript(tabId, csvObjectArray) {
+  if (!(csvObjectArray && tabId)) return;
+
+  chrome.scripting.executeScript(
+    {
+      files: ["/assets/js/contentScripts/injector.js"],
+      target: { tabId },
+    },
+    () => {
+      chrome.tabs.sendMessage(
+        tabId,
+        { csvObjectArray, command: "startScript", name: "DROPSHIPPING_TOOL" },
+        (response) => response
+      );
+    }
+  );
 }
-
-async function listenerCallback(csvUrl, targetUrl) {
- 
-  if (!csvUrl) {
-    console.error("An Error Occured!");
-  }
-  const csvString = await fetchCsvData(csvUrl);
-
-  let csvObjectArray;
-  if (!isPapaFailed) {
-    csvObjectArray = convertAuto(csvString);
-  }
-
-  const tabId = await navigator(targetUrl);
-  
-  csvTabObject[tabId] = csvObjectArray;
-
-  log('csvTabObject', csvTabObject)
-}
-
-(async () => {
-    await listener(listenerCallback);
-
-    chrome.tabs.onUpdated.addListener(async (updatedTabId, changeInfo) => {
-      log('updatedTabId', updatedTabId)
-      if (changeInfo.status === "complete") {
-        if(csvTabObject[updatedTabId]) {
-          await executeContentScript(updatedTabId);
-          sender(csvTabObject[updatedTabId], updatedTabId)
-        }
-      }
-      return true;
-    });
-
-})();
