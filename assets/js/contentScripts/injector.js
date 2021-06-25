@@ -5,7 +5,6 @@
     sendResponse
   ) {
     sendResponse(true);
-
     if (
       !sender.tab &&
       request.command === "startScript" &&

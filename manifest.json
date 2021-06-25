@@ -23,7 +23,6 @@
         "storage"
     ],
     "host_permissions": [
-        "<all_urls>",
         "https://dsm.commercehub.com/*",
         "http://crm.saffronfabs.com/*"
     ],

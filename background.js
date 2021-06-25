@@ -4,23 +4,38 @@ try {
   throw new Error("fatal - failed to import papaparse!", err);
 }
 
-chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+let absoluteTabId = null, csvUrl = null;
+
+chrome.runtime.onMessage.addListener(handleMessage);
+chrome.tabs.onUpdated.addListener(handleTabUpdate);
+
+async function handleMessage(request, sender, sendResponse) {
   sendResponse(true);
 
   if (!sender.tab && request.csvUrl && request.targetUrl) {
-    const csvUrl = request.csvUrl;
     const targetUrl = request.targetUrl;
+    csvUrl = request.csvUrl;
 
     if (csvUrl.length && targetUrl.length) {
-      executeScript(
-        await navigator(targetUrl),
-        convertAuto(await fetchCsvData(csvUrl))
-      );
+      absoluteTabId = await navigator(targetUrl)
     }
   }
-
   return true;
-});
+}
+
+async function handleTabUpdate(tabId, changeInfo) {
+  if (
+    csvUrl &&
+    absoluteTabId &&
+    absoluteTabId === tabId &&
+    changeInfo.status === "complete"
+  ) {
+    executeScript(absoluteTabId, convertAuto(await fetchCsvData(csvUrl)));
+    csvUrl = null;
+    absoluteTabId = null;
+  }
+  return true;
+}
 
 async function fetchCsvData(url) {
   return fetch(url)
